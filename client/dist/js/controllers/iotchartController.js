@@ -39,6 +39,36 @@ app.controller('iotchartController', ['$scope', '$paho', '$timeout', '$q', '$htt
       return deferred.promise;
     };
 
+    var getCredentials = function(config) {
+      var deferred = $q.defer();
+
+      AWS.config.region = config.region;
+      var credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: config.identityPoolId});
+      AWS.config.credentials = credentials;
+      config.credentials = credentials;
+      deferred.resolve(config);
+
+      return deferred.promise;
+    };
+
+    var getEndpoint = function(config) {
+      var deferred = $q.defer();
+
+      var iot = new AWS.Iot({apiVersion: '2015-05-28'});
+      iot.describeEndpoint({}, function(err, data) {
+        if (err) {
+          console.error("Unable to get endpoint. Error JSON:", JSON.stringify(err, null, 2));
+          deferred.reject(err);
+        } else {
+          console.log("Get endpoint succeeded:", JSON.stringify(data, null, 2));
+          config.endpoint = data.endpointAddress;
+          deferred.resolve(config);
+        }
+      });
+
+      return deferred.promise;
+    };
+
     var openConfirm = function(config) {
       var deferred = $q.defer();
 
@@ -60,9 +90,6 @@ app.controller('iotchartController', ['$scope', '$paho', '$timeout', '$q', '$htt
     };
 
     var connectIot = function (config) {
-
-      AWS.config.region = config.region;
-      var credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId: config.identityPoolId});
       
       // var sendTopic = `iotBrowser${config.envId}/inbound/connect`;
       // var receiveTopic = `iotBrowser${config.envId}/outbound/#`;
@@ -71,7 +98,7 @@ app.controller('iotchartController', ['$scope', '$paho', '$timeout', '$q', '$htt
       var receiveTopic = 'iotBrowser' + config.envId + '/outbound/#';
       var name = 'iotBrowser' + config.envId;
 
-      $paho.connect(name, config.region, config.endpoint, credentials)
+      $paho.connect(name, config.region, config.endpoint, config.credentials)
         .then(function(payload) {
             console.log(JSON.stringify(payload));
             $paho.received(name)
@@ -137,6 +164,8 @@ app.controller('iotchartController', ['$scope', '$paho', '$timeout', '$q', '$htt
       };
 
       getConfig(getConfig)
+        .then(getCredentials)
+        .then(getEndpoint)
         .then(openConfirm)
         .then(connectIot);
     }
