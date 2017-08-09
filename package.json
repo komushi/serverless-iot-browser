@@ -1,0 +1,15 @@
+{
+  "name": "serverless-iot-browser",
+  "version": "0.1.0",
+  "description": "Serverless service to deploy IoTBrowser backend and frontend",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Lei Xu",
+  "license": "ISC",
+  "dependencies": {
+    "serverless-finch": "^1.1.1",
+    "serverless-pseudo-parameters": "^1.1.5",
+    "serverless-stack-output": "^0.2.0"
+  }
+}

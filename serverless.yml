@@ -1,0 +1,250 @@
+service: serverless-iot-browser-${{self:provider.environment.ENV_ID}}
+
+plugins:
+  - serverless-pseudo-parameters
+  - serverless-stack-output
+  - serverless-finch
+
+package:
+  exclude:
+    - .DS_Store
+    - .gitignore
+    - .npmignore
+    - .git/**
+    - .idea/**
+    - .build/**
+    - node_modules/**
+    - scripts/**
+    - client/**
+    - package.json
+    - README.md
+
+custom:
+  output:
+    handler: scripts/output.handler
+    file: .build/stack.json
+  client:
+    bucketName: serverless-iot-browser-${{self:provider.environment.ENV_ID}}
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  region: ap-northeast-1
+  stage: dev
+  environment:
+    ENV_ID: "001"
+  variableSyntax: "\\${{([\\s\\S]+?)}}"
+  iamRoleStatements:
+    - Effect: "Allow"
+      Resource:
+        - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/IotBrowserCount${{self:provider.environment.ENV_ID}}
+        - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/IotBrowserOutput${{self:provider.environment.ENV_ID}}
+        - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/IotBrowserRaw${{self:provider.environment.ENV_ID}}
+      Action:
+        - "dynamodb:*"
+    - Effect: "Allow"
+      Resource: "*"
+      Action:
+        - "iot:*"
+
+functions:
+  count:
+    handler: handler.count
+    events:
+      - stream: 
+          type: dynamodb
+          arn:
+            Fn::GetAtt:
+              - IotBrowserRaw
+              - StreamArn
+          batchSize: 10
+          startingPosition: LATEST
+
+resources:
+  Resources:
+    # Raw Table
+    IotBrowserRaw:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: IotBrowserRaw${{self:provider.environment.ENV_ID}}
+        AttributeDefinitions:
+          - AttributeName: clientId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: clientId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+
+    # Count Table
+    IotBrowserCount:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: IotBrowserCount${{self:provider.environment.ENV_ID}}
+        AttributeDefinitions:
+          - AttributeName: type
+            AttributeType: S
+          - AttributeName: key
+            AttributeType: S
+        KeySchema:
+          - AttributeName: type
+            KeyType: HASH
+          - AttributeName: key
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+    
+    # Output Table
+    IotBrowserOutput:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: IotBrowserOutput${{self:provider.environment.ENV_ID}}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+    # Rule for device disconnection
+    DisconnectedIotTopicRule:
+      Type: AWS::IoT::TopicRule
+      DependsOn: IotBrowserRaw
+      Properties:
+        RuleName: IotBrowser${{self:provider.environment.ENV_ID}}_DisconnectedRule
+        TopicRulePayload:
+          AwsIotSqlVersion: "2016-03-23"
+          RuleDisabled: true
+          Sql: SELECT * FROM '$aws/events/presence/disconnected/#' WHERE startswith(clientId, "iotBrowser${{self:provider.environment.ENV_ID}}")
+          Actions:
+            - 
+              DynamoDB:
+                TableName: IotBrowserRaw${{self:provider.environment.ENV_ID}}
+                HashKeyField: clientId
+                HashKeyValue: ${clientId}
+                RangeKeyField: eventType
+                RangeKeyValue: ${eventType}
+                RoleArn: 
+                  Fn::GetAtt: 
+                    - IoTActionsRole
+                    - Arn
+    # Rule for device connection
+    ConnectedIotTopicRule:
+      Type: AWS::IoT::TopicRule
+      Properties:
+        RuleName: IotBrowser${{self:provider.environment.ENV_ID}}_ConnectedRule
+        TopicRulePayload:
+          AwsIotSqlVersion: "2016-03-23"
+          RuleDisabled: true
+          Sql: SELECT * FROM 'iotBrowser${{self:provider.environment.ENV_ID}}/inbound/connect'
+          Actions:
+            - 
+              DynamoDB:
+                TableName: IotBrowserRaw${{self:provider.environment.ENV_ID}}
+                HashKeyField: clientId
+                HashKeyValue: ${clientId}
+                RangeKeyField: eventType
+                RangeKeyValue: ${eventType}
+                RoleArn: 
+                  Fn::GetAtt: 
+                    - IoTActionsRole
+                    - Arn
+    # IoT Rule Action Role
+    IoTActionsRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: "sts:AssumeRole"
+              Principal:
+                Service: iot.amazonaws.com
+        Policies:
+          -
+            PolicyName: IotBrowser${{self:provider.environment.ENV_ID}}_DynamoDBActionsPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                  Resource:
+                    - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/IotBrowserRaw${{self:provider.environment.ENV_ID}}
+
+    # Cognito Identity Pool
+    IdentityPool:
+      Type: AWS::Cognito::IdentityPool
+      Properties:
+        IdentityPoolName: IotBrowserRaw${{self:provider.environment.ENV_ID}}_IdentityPool
+        AllowUnauthenticatedIdentities: True
+
+    # Cognito Unauthenticated Role
+    CongnitoUnauthenticatedRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: "sts:AssumeRoleWithWebIdentity"
+              Principal:
+                Federated: cognito-identity.amazonaws.com
+              Condition:
+                StringEquals:
+                  "cognito-identity.amazonaws.com:aud": 
+                    Ref: IdentityPool
+                ForAnyValue:StringLike:
+                  "cognito-identity.amazonaws.com:amr": unauthenticated
+        Policies:
+          -
+            PolicyName: IotBrowser${{self:provider.environment.ENV_ID}}_UnauthenticatedPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - mobileanalytics:PutEvents
+                    - cognito-sync:*
+                  Resource:
+                    - "*"
+                - Effect: Allow
+                  Action:
+                    - iot:Connect
+                    - iot:Publish
+                    - iot:Receive
+                  Resource:
+                    - "*"
+                - Effect: Allow
+                  Action:
+                    - iot:Subscribe
+                  Resource:
+                    - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/iotBrowser${{self:provider.environment.ENV_ID}}/outbound/*
+                    - arn:aws:iot:#{AWS::Region}:#{AWS::AccountId}:topicfilter/$aws/events/presence/disconnected/*
+    
+    # To attache the role to Identity Pool
+    RoleAttachment:
+      Type: AWS::Cognito::IdentityPoolRoleAttachment
+      Properties:
+        IdentityPoolId:
+          Ref: IdentityPool
+        Roles:
+          unauthenticated:
+            Fn::GetAtt:
+              - CongnitoUnauthenticatedRole
+              - Arn
+  Outputs:
+    IdentityPoolId:
+      Value:
+        Ref: IdentityPool
+    Region:
+      Value: ${{self:provider.region}}
+    EnvironmentID:
+      Value: ${{self:provider.environment.ENV_ID}}
