@@ -220,6 +220,7 @@ resources:
                     - iot:Connect
                     - iot:Publish
                     - iot:Receive
+                    - iot:DescribeEndpoint
                   Resource:
                     - "*"
                 - Effect: Allow
