@@ -1,0 +1,73 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create Cognito IdentityPool
+
+Parameters:
+  EnvironmentId:
+    Description: Environment ID
+    Default: "100"
+    Type: String
+
+Resources:
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub IdentityPool_${AWS::StackName}_${EnvironmentId}
+      AllowUnauthenticatedIdentities: True
+
+  CongnitoUnauthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRoleWithWebIdentity"
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              ForAnyValue:StringLike:
+                "cognito-identity.amazonaws.com:amr": unauthenticated
+      Policies:
+        -
+          PolicyName: !Sub IotBrowser${EnvironmentId}_UnauthenticatedPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - mobileanalytics:PutEvents
+                  - cognito-sync:*
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - iot:Connect
+                  - iot:Publish
+                  - iot:Receive
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - iot:Subscribe
+                Resource:
+                  - !Sub arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/iotBrowser${EnvironmentId}/outbound/*
+                  - !Sub arn:aws:iot:${AWS::Region}:${AWS::AccountId}:topicfilter/$aws/events/presence/disconnected/*
+  
+  RoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId:
+        Ref: IdentityPool
+      Roles:
+        unauthenticated:
+          Fn::GetAtt:
+            - CongnitoUnauthenticatedRole
+            - Arn
+
+Outputs:
+  IdentityPoolId: 
+    Description: A reference to the identity pool ID
+    Value: !Ref IdentityPool
