@@ -23,3 +23,4 @@ Access 'http://serverless-iot-browser-<ENV_ID>.s3-website-<region>.amazonaws.com
 - Lambda
 - DynamoDB
 - S3
+- IAM
