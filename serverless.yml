@@ -121,7 +121,7 @@ resources:
         RuleName: IotBrowser${{self:provider.environment.ENV_ID}}_DisconnectedRule
         TopicRulePayload:
           AwsIotSqlVersion: "2016-03-23"
-          RuleDisabled: true
+          RuleDisabled: False
           Sql: SELECT * FROM '$aws/events/presence/disconnected/#' WHERE startswith(clientId, "iotBrowser${{self:provider.environment.ENV_ID}}")
           Actions:
             - 
@@ -142,7 +142,7 @@ resources:
         RuleName: IotBrowser${{self:provider.environment.ENV_ID}}_ConnectedRule
         TopicRulePayload:
           AwsIotSqlVersion: "2016-03-23"
-          RuleDisabled: true
+          RuleDisabled: False
           Sql: SELECT * FROM 'iotBrowser${{self:provider.environment.ENV_ID}}/inbound/connect'
           Actions:
             - 
