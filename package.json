@@ -8,7 +8,7 @@
   "author": "Lei Xu",
   "license": "ISC",
   "dependencies": {
-    "serverless-finch": "^1.1.1",
+    "serverless-finch": "^2.3.2",
     "serverless-pseudo-parameters": "1.3.2",
     "serverless-stack-output": "^0.2.0"
   }

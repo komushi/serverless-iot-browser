@@ -24,7 +24,7 @@ custom:
     handler: scripts/output.handler
     file: .build/stack.json
   client:
-    bucketName: serverless-iot-browser-#{AWS::AccountId}
+    bucketName: serverless-iot-browser
 
 provider:
   name: aws
