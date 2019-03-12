@@ -5,11 +5,10 @@ const AWS = require('aws-sdk');
 const docClient = new AWS.DynamoDB.DocumentClient();
 const iot = new AWS.Iot({apiVersion: '2015-05-28'});
 
-const envId = process.env.ENV_ID;
 let iotData;
 
-const countTable = `IotBrowserCount${envId}`;
-const outputTable = `IotBrowserOutput${envId}`;
+const countTable = `IotBrowserCount`;
+const outputTable = `IotBrowserOutput`;
 const countAttibute = 'count';
 const countTypes = ['browser', 'os', 'device'];
 const typeAttribute = 'type';
@@ -370,7 +369,7 @@ const taskParamsPublish = (publishPayload) => {
           
 
           let params = {
-            topic: `iotBrowser${envId}/outbound/${key}`,
+            topic: `iotBrowser/outbound/${key}`,
             payload: JSON.stringify(publishPayload[key].filter(removeZeroPayloadDetail)),
             qos: 1
           };

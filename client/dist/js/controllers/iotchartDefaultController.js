@@ -55,7 +55,7 @@ app.controller('iotchartDefaultController', ['$scope', '$paho', '$timeout', '$q'
       var deferred = $q.defer();
 
       var iot = new AWS.Iot({apiVersion: '2015-05-28'});
-      iot.describeEndpoint({}, function(err, data) {
+      iot.describeEndpoint({"endpointType": "iot:Data-ATS"}, function(err, data) {
         if (err) {
           console.error("Unable to get endpoint. Error JSON:", JSON.stringify(err, null, 2));
           deferred.reject(err);
@@ -72,12 +72,9 @@ app.controller('iotchartDefaultController', ['$scope', '$paho', '$timeout', '$q'
 
     var connectIot = function (config) {
       
-      // var sendTopic = `iotBrowser${config.envId}/inbound/connect`;
-      // var receiveTopic = `iotBrowser${config.envId}/outbound/#`;
-      // var name = `iotBrowser${config.envId}`;
-      var sendTopic = 'iotBrowser' + config.envId + '/inbound/connect';
-      var receiveTopic = 'iotBrowser' + config.envId + '/outbound/#';
-      var name = 'iotBrowser' + config.envId;
+      var sendTopic = 'iotBrowser/inbound/connect';
+      var receiveTopic = 'iotBrowser/outbound/#';
+      var name = 'iotBrowser';
 
       $paho.connect(name, config.region, config.endpoint, config.credentials)
         .then(function(payload) {
