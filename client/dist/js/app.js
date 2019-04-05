@@ -15,7 +15,7 @@ app.config(['$routeProvider', '$locationProvider', function($routeProvider, $loc
 
 	$routeProvider.
 		when("/", {redirectTo: '/iotchartDefault'}).
-		when("/iotchart", {templateUrl: "views/iotchart.html", controller: "iotchartController"}).
+		// when("/iotchart", {templateUrl: "views/iotchart.html", controller: "iotchartController"}).
 		when("/iotchartDefault", {templateUrl: "views/iotchart.html", controller: "iotchartDefaultController"});
 
 }]);
