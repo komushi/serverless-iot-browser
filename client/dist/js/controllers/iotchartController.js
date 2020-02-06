@@ -55,7 +55,7 @@ app.controller('iotchartController', ['$scope', '$paho', '$timeout', '$q', '$htt
       var deferred = $q.defer();
 
       var iot = new AWS.Iot({apiVersion: '2015-05-28'});
-      iot.describeEndpoint({}, function(err, data) {
+      iot.describeEndpoint({endpointType: 'iot:Data-ATS'}, function(err, data) {
         if (err) {
           console.error("Unable to get endpoint. Error JSON:", JSON.stringify(err, null, 2));
           deferred.reject(err);
